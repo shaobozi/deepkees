@@ -50,7 +50,7 @@ jobs:
           packages: platform-tools
 
       - name: Install Android platform and NDK
-        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;28.2.13676358'
+        run: sdkmanager 'platforms;android-37.0' 'build-tools;37.0.0' 'ndk;28.2.13676358'
 
       - name: Install Flutter dependencies
         run: flutter pub get
