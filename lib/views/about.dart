@@ -189,18 +189,6 @@ class _AboutHero extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 420),
-            child: Text(
-              appLocalizations.desc,
-              textAlign: TextAlign.center,
-              style: textTheme.bodyMedium?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                height: 1.5,
-              ),
-            ),
-          ),
           const SizedBox(height: 20),
           FilledButton.tonalIcon(
             onPressed: isCheckingUpdate ? null : onCheckUpdate,

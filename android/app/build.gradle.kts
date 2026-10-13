@@ -36,7 +36,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.follow.clash"
+        applicationId = "app.deepkees.android"
         minSdk = flutter.minSdkVersion
         targetSdk = libs.versions.targetSdk.get().toInt()
         versionCode = flutter.versionCode
@@ -82,7 +82,8 @@ android {
             )
 
             configure<CrashlyticsExtension> {
-                nativeSymbolUploadEnabled = hasReleaseSigning
+                nativeSymbolUploadEnabled = false
+                mappingFileUploadEnabled = false
             }
         }
     }
@@ -101,13 +102,6 @@ kotlin {
 
 flutter {
     source = "../.."
-}
-
-// The Crashlytics plugin finalizes R8 with the mapping upload but leaves the native symbol upload to the caller.
-if (hasReleaseSigning) {
-    tasks.matching { it.name == "assembleRelease" || it.name == "bundleRelease" }.configureEach {
-        finalizedBy("uploadCrashlyticsSymbolFileRelease")
-    }
 }
 
 dependencies {

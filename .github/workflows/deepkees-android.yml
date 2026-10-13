@@ -1,0 +1,96 @@
+name: Build deepkees Android
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deepkees-android-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get pinned proxy core
+        run: git -c 'url.https://github.com/.insteadOf=git@github.com:' submodule update --init --recursive
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          channel: master
+          flutter-version: '3.47.4'
+          cache: true
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.4'
+          cache-dependency-path: core/go.sum
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install Android platform and NDK
+        run: sdkmanager 'platforms;android-37' 'build-tools;37.0.0' 'ndk;28.2.13676358'
+
+      - name: Install Flutter dependencies
+        run: flutter pub get
+
+      - name: Analyze
+        run: flutter analyze --no-fatal-infos
+
+      - name: Configure build
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          printf '{"APP_ENV":"pre"}\n' > env.json
+          if [[ -n "$KEYSTORE_BASE64" ]]; then
+            test -n "$KEY_ALIAS" && test -n "$STORE_PASSWORD" && test -n "$KEY_PASSWORD"
+            printf '%s' "$KEYSTORE_BASE64" | base64 --decode > android/app/keystore.jks
+            printf '\nkeyAlias=%s\nstorePassword=%s\nkeyPassword=%s\n' \
+              "$KEY_ALIAS" "$STORE_PASSWORD" "$KEY_PASSWORD" >> android/local.properties
+          else
+            echo 'Development signing: package app.deepkees.android.dev; this key is not retained between runs.' >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Build ARM64 APK
+        run: flutter build apk --release --target-platform android-arm64 --split-per-abi --dart-define-from-file=env.json
+
+      - name: Check Android unit tests
+        working-directory: android
+        run: ./gradlew :common:testDebugUnitTest :service:testDebugUnitTest :app:testDebugUnitTest -x :app:compileFlutterBuildDebug -x :app:copyFlutterAssetsDebug
+
+      - name: Name APK
+        run: |
+          mkdir -p dist
+          cp build/app/outputs/flutter-apk/app-arm64-v8a-release.apk dist/deepkees-arm64-v8a.apk
+          sha256sum dist/deepkees-arm64-v8a.apk > dist/SHA256SUMS.txt
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: deepkees-android-arm64
+          path: dist/
+          if-no-files-found: error
+          retention-days: 14
